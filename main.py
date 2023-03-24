@@ -43,6 +43,7 @@ class Scraper(object):
         self.secure_url = "https://www.tesmanian.com/"
         self.base_url = "https://www.tesmanian.com/blogs/tesmanian-blog?page=1"
 
+    # Login using email and pwd
     async def login(self):
         login_page = self.session.get("https://www.tesmanian.com/account/login/")
         login_data = {"email": EMAIL, "password": PASSWORD}
@@ -50,6 +51,7 @@ class Scraper(object):
         with open(self.cookies_file, "wb") as f:
             pickle.dump(self.session.cookies, f)
 
+    # Login with cookies
     async def authorization(self):
         with open(self.cookies_file, "rb") as f:
             cookies = pickle.load(f)
@@ -60,6 +62,7 @@ class Scraper(object):
         else:
             print("Failed to authorize")
 
+    # Check status of website
     async def check_status(self):
         response = requests.head(self.secure_url)
         if response.ok:
@@ -69,6 +72,7 @@ class Scraper(object):
             print(f"Status code is {response.status_code}, something went wrong.")
             return False
 
+    # Start scraping
     async def run(self, call: types.CallbackQuery):
         while True:
             response = self.session.get(self.base_url)
@@ -86,7 +90,6 @@ class Scraper(object):
                 link_element = card.find("a")
                 link = link_element["href"] if link_element else None
                 results.append({"title": title_h2, "link": link})
-            print(results)
 
             # Send results to the Telegram bot
             chat_id = call.message.chat.id
