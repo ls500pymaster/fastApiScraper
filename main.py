@@ -1,9 +1,15 @@
 import asyncio
+import os
 import pickle
 
 import requests
 import uvicorn
+from aiogram import Bot, types
+from aiogram.dispatcher import Dispatcher
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ParseMode
+from aiogram.utils import executor
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from settings import PASSWORD, EMAIL
@@ -12,7 +18,22 @@ app = FastAPI(
     title="Scraper"
 )
 
+# Bot setup
+load_dotenv()
+bot = Bot(token=os.getenv("BOT_TOKEN"))
+dp = Dispatcher(bot)
+
+keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+keyboard.add(KeyboardButton("/start"))
+
+# Sleep time
 REPEAT_TIME = 999
+
+
+@dp.message_handler(commands=["start"])
+async def cmd_answer(message: types.Message):
+    await message.answer(
+        "<b>Tesla scraper is ready.</b>")
 
 
 class Scraper(object):
@@ -48,7 +69,7 @@ class Scraper(object):
             print(f"Status code is {response.status_code}, something went wrong.")
             return False
 
-    async def run(self):
+    async def run(self, call: types.CallbackQuery):
         while True:
             response = self.session.get(self.base_url)
             soup = BeautifulSoup(response.content, "html.parser")
@@ -67,6 +88,13 @@ class Scraper(object):
                 results.append({"title": title_h2, "link": link})
             print(results)
 
+            # Send results to the Telegram bot
+            chat_id = call.message.chat.id
+            message = "Scraping results:\n\n"
+            for result in results:
+                message += f"{result['title']} - {result['link']}\n"
+            await bot.send_message(chat_id=chat_id, text=message)
+
             await asyncio.sleep(REPEAT_TIME)
 
 
@@ -80,6 +108,7 @@ async def start_app():
         raise Exception("Status code is not OK, stopping program")
     asyncio.create_task(scraper.run())
 
+
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
@@ -87,3 +116,15 @@ if __name__ == "__main__":
         port=8000,
         reload=True
     )
+    executor.start_polling(dp, skip_updates=True)
+
+    # async def send_results_to_telegram_bot(message: types.Message, results):
+    #     chat_id = message.chat.id
+    #     message = "<b>Scraped Results:</b>\n\n"
+    #     for result in results:
+    #         message += f"<a href='{result['link']}'>{result['title']}</a>\n\n"
+    #     try:
+    #         await bot.send_message(chat_id=chat_id, text=message, parse_mode=ParseMode.HTML)
+    #         print('Results sent successfully to Telegram chat.')
+    #     except Exception as e:
+    #         print(f'Error sending results to Telegram chat: {e}')
